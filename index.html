@@ -181,12 +181,15 @@
             width: 100%;
             height: 100%;
             border: none;
-            pointer-events: none;
         }
 
         .grid-item.reel iframe {
             transform: translate(-50%, -50%) scale(1.3);
             height: 140%;
+        }
+
+        .grid-item.dragging iframe {
+            pointer-events: none;
         }
 
         .grid-item:active {

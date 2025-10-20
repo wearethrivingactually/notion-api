@@ -168,9 +168,36 @@
             position: relative;
             aspect-ratio: 4 / 5;
             overflow: hidden;
-            cursor: grab;
+            cursor: default;
             border-radius: 4px;
             background: #f5f5f5;
+        }
+
+        .drag-handle {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 14px;
+        }
+
+        .grid-item:hover .drag-handle {
+            opacity: 1;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
         }
 
         .grid-item iframe {
@@ -650,8 +677,18 @@
                 if (img.type === 'Reel') {
                     item.classList.add('reel');
                 }
-                item.draggable = true;
                 item.dataset.index = index;
+
+                // Add drag handle
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'drag-handle';
+                dragHandle.innerHTML = '⋮⋮';
+                dragHandle.draggable = true;
+                
+                dragHandle.addEventListener('dragstart', (e) => handleDragStart.call(item, e));
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                dragHandle.addEventListener('dragend', () => handleDragEnd.call(item));
 
                 const primarySource = img.canvaUrl || img.url;
                 const isFromCanva = !!img.canvaUrl;
@@ -747,11 +784,7 @@
                     item.appendChild(badge);
                 }
 
-                item.addEventListener('dragstart', handleDragStart);
-                item.addEventListener('dragover', handleDragOver);
-                item.addEventListener('drop', handleDrop);
-                item.addEventListener('dragend', handleDragEnd);
-
+                item.appendChild(dragHandle);
                 grid.appendChild(item);
             });
         }

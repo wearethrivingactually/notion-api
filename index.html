@@ -581,17 +581,25 @@
                 video.muted = true;
                 video.loop = true;
                 video.playsInline = true;
+                video.onerror = () => console.error('Video failed to load:', url);
                 return { element: video, type: 'video' };
             } else if (mediaType === 'image') {
                 const img = document.createElement('img');
                 img.src = url;
                 img.alt = alt;
+                img.onerror = () => {
+                    console.error('Image failed to load:', url);
+                    img.style.display = 'none';
+                    img.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;color:#999;font-size:12px;padding:10px;text-align:center;">Image failed to load</div>';
+                };
+                img.onload = () => console.log('Image loaded successfully:', url);
                 return { element: img, type: 'image' };
             } else if (isCanvaUrl(url)) {
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
                 iframe.loading = 'lazy';
                 iframe.allow = 'autoplay';
+                iframe.onerror = () => console.error('Canva embed failed to load:', url);
                 return { element: iframe, type: 'canva' };
             }
             

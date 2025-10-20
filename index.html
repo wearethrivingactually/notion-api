@@ -605,12 +605,16 @@
             Object.values(carouselIntervals).forEach(interval => clearInterval(interval));
             carouselIntervals = {};
 
+            console.log('Rendering grid with', images.length, 'images'); // Debug
+
             if (images.length === 0) {
                 grid.innerHTML = '<div class="placeholder">No items loaded. Configure your settings above and add some content!</div>';
                 return;
             }
 
             images.forEach((img, index) => {
+                console.log('Rendering item', index, img); // Debug
+                
                 const item = document.createElement('div');
                 item.className = 'grid-item';
                 item.draggable = true;
@@ -618,6 +622,8 @@
 
                 const primarySource = img.canvaUrl || img.url;
                 const isFromCanva = !!img.canvaUrl;
+
+                console.log('Primary source for item', index, ':', primarySource); // Debug
 
                 if (img.type === 'Carousel' && (isFromCanva || img.slides.length > 0)) {
                     const carouselContainer = document.createElement('div');

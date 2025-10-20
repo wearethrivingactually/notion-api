@@ -166,7 +166,7 @@
 
         .grid-item {
             position: relative;
-            aspect-ratio: 1;
+            aspect-ratio: 4 / 5;
             overflow: hidden;
             cursor: grab;
             border-radius: 4px;
@@ -189,6 +189,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: center;
             transition: transform 0.2s;
             border: none;
         }
@@ -235,11 +236,13 @@
             left: 8px;
             background: rgba(0, 199, 190, 0.9);
             color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 9px;
             font-weight: 600;
             z-index: 10;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .carousel-slides {

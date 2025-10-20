@@ -171,33 +171,20 @@
             cursor: default;
             border-radius: 4px;
             background: #f5f5f5;
+            transition: box-shadow 0.2s;
+        }
+
+        .grid-item.drag-mode {
+            cursor: grab;
+            box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.5);
+        }
+
+        .grid-item.drag-mode:active {
+            cursor: grabbing;
         }
 
         .drag-handle {
-            position: absolute;
-            top: 8px;
-            left: 8px;
-            background: rgba(0, 0, 0, 0.6);
-            color: white;
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: grab;
-            z-index: 15;
-            opacity: 0;
-            transition: opacity 0.2s;
-            font-size: 14px;
-        }
-
-        .grid-item:hover .drag-handle {
-            opacity: 1;
-        }
-
-        .drag-handle:active {
-            cursor: grabbing;
+            display: none;
         }
 
         .grid-item iframe {
@@ -415,6 +402,28 @@
         let images = [];
         let draggedElement = null;
         let carouselIntervals = {};
+        let dragMode = false;
+
+        // Toggle drag mode with Shift key
+        document.addEventListener('keydown', (e) => {
+            if (e.shiftKey && !dragMode) {
+                dragMode = true;
+                document.querySelectorAll('.grid-item').forEach(item => {
+                    item.classList.add('drag-mode');
+                    item.draggable = true;
+                });
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (!e.shiftKey && dragMode) {
+                dragMode = false;
+                document.querySelectorAll('.grid-item').forEach(item => {
+                    item.classList.remove('drag-mode');
+                    item.draggable = false;
+                });
+            }
+        });
 
         function toggleMenu() {
             const menu = document.getElementById('dropdownMenu');
@@ -647,7 +656,7 @@
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
                 iframe.loading = 'lazy';
-                iframe.allow = 'autoplay';
+                iframe.setAttribute('allowfullscreen', '');
                 iframe.onerror = () => console.error('Canva embed failed to load:', url);
                 return { element: iframe, type: 'canva' };
             }
@@ -678,17 +687,12 @@
                     item.classList.add('reel');
                 }
                 item.dataset.index = index;
+                item.draggable = false;
 
-                // Add drag handle
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'drag-handle';
-                dragHandle.innerHTML = '⋮⋮';
-                dragHandle.draggable = true;
-                
-                dragHandle.addEventListener('dragstart', (e) => handleDragStart.call(item, e));
+                item.addEventListener('dragstart', handleDragStart);
                 item.addEventListener('dragover', handleDragOver);
                 item.addEventListener('drop', handleDrop);
-                dragHandle.addEventListener('dragend', () => handleDragEnd.call(item));
+                item.addEventListener('dragend', handleDragEnd);
 
                 const primarySource = img.canvaUrl || img.url;
                 const isFromCanva = !!img.canvaUrl;
@@ -784,7 +788,6 @@
                     item.appendChild(badge);
                 }
 
-                item.appendChild(dragHandle);
                 grid.appendChild(item);
             });
         }

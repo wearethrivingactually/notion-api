@@ -28,6 +28,11 @@
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .config-section.hidden {
+            display: none;
         }
 
         .config-section h2 {
@@ -56,8 +61,10 @@
         }
 
         .menu-container {
-            position: relative;
-            display: inline-block;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
         }
 
         .hamburger-btn {
@@ -83,7 +90,7 @@
         .dropdown-menu {
             position: absolute;
             top: 45px;
-            left: 0;
+            right: 0;
             background: white;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -142,9 +149,14 @@
             color: #28a745;
         }
 
+        .menu-item.settings {
+            color: #6c757d;
+            border-top: 1px solid #f0f0f0;
+        }
+
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 4px;
             background: white;
             padding: 20px;
@@ -308,7 +320,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="config-section">
+        <div class="config-section" id="configSection">
             <h2>⚙️ Configuration</h2>
             <div id="status"></div>
             <div class="input-group">
@@ -323,21 +335,26 @@
                 <label for="apiKey">Integration Token:</label>
                 <input type="password" id="apiKey" placeholder="Enter your Notion integration token">
             </div>
-            <div class="menu-container">
-                <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
-                <div class="dropdown-menu" id="dropdownMenu">
-                    <div class="menu-item load" onclick="loadFromNotion(); closeMenu();">
-                        <span class="icon">📥</span>
-                        <span>Load Content</span>
-                    </div>
-                    <div class="menu-item refresh" onclick="refreshGrid(); closeMenu();">
-                        <span class="icon">🔄</span>
-                        <span>Refresh</span>
-                    </div>
-                    <div class="menu-item save" onclick="saveToNotion(); closeMenu();">
-                        <span class="icon">💾</span>
-                        <span>Save Order</span>
-                    </div>
+        </div>
+
+        <div class="menu-container">
+            <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
+            <div class="dropdown-menu" id="dropdownMenu">
+                <div class="menu-item load" onclick="loadFromNotion(); closeMenu();">
+                    <span class="icon">📥</span>
+                    <span>Load Content</span>
+                </div>
+                <div class="menu-item refresh" onclick="refreshGrid(); closeMenu();">
+                    <span class="icon">🔄</span>
+                    <span>Refresh</span>
+                </div>
+                <div class="menu-item save" onclick="saveToNotion(); closeMenu();">
+                    <span class="icon">💾</span>
+                    <span>Save Order</span>
+                </div>
+                <div class="menu-item settings" onclick="toggleSettings(); closeMenu();">
+                    <span class="icon">⚙️</span>
+                    <span>Settings</span>
                 </div>
             </div>
         </div>
@@ -358,6 +375,16 @@
         function closeMenu() {
             const menu = document.getElementById('dropdownMenu');
             menu.classList.remove('show');
+        }
+
+        function toggleSettings() {
+            const configSection = document.getElementById('configSection');
+            configSection.classList.toggle('hidden');
+        }
+
+        function hideSettings() {
+            const configSection = document.getElementById('configSection');
+            configSection.classList.add('hidden');
         }
 
         document.addEventListener('click', function(event) {
@@ -403,6 +430,36 @@
             return url;
         }
 
+        // Load saved credentials on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedApiUrl = getCookie('apiUrl');
+            const savedDatabaseId = getCookie('databaseId');
+            const savedApiKey = getCookie('apiKey');
+            
+            if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
+            if (savedDatabaseId) document.getElementById('databaseId').value = savedDatabaseId;
+            if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
+            
+            // Auto-load if all credentials are present
+            if (savedApiUrl && savedDatabaseId && savedApiKey) {
+                loadFromNotion();
+                // Hide settings after auto-loading
+                setTimeout(() => hideSettings(), 1000);
+            }
+        });
+
+        function setCookie(name, value, days = 365) {
+            const expires = new Date(Date.now() + days * 864e5).toUTCString();
+            document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=None; Secure';
+        }
+
+        function getCookie(name) {
+            return document.cookie.split('; ').reduce((r, v) => {
+                const parts = v.split('=');
+                return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+            }, '');
+        }
+
         async function loadFromNotion() {
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const databaseId = document.getElementById('databaseId').value.trim();
@@ -412,6 +469,11 @@
                 showStatus('Please enter API URL, Database ID, and Integration Token', true);
                 return;
             }
+
+            // Save credentials
+            setCookie('apiUrl', apiUrl);
+            setCookie('databaseId', databaseId);
+            setCookie('apiKey', apiKey);
 
             try {
                 const response = await fetch(apiUrl, {
@@ -436,13 +498,19 @@
                     throw new Error(data.error);
                 }
 
+                console.log('Notion API Response:', data); // Debug log
+
                 images = data.results.map(page => {
+                    console.log('Processing page:', page); // Debug log
+                    
                     const canvaUrl = page.properties['Canva URL']?.url || null;
                     const imageFiles = page.properties.Image?.files || [];
                     const imageUrl = imageFiles.length > 0 ? imageFiles[0].file?.url || imageFiles[0].external?.url : null;
                     const type = page.properties.Type?.select?.name || 'Photo';
                     const slides = page.properties.Slides?.files || [];
                     const slideUrls = slides.map(slide => slide.file?.url || slide.external?.url).filter(url => url);
+                    
+                    console.log('Extracted data:', { canvaUrl, imageUrl, type, slideUrls }); // Debug log
                     
                     return {
                         id: page.id,
@@ -455,8 +523,13 @@
                     };
                 }).filter(img => img.canvaUrl || img.url || img.slides.length > 0);
 
+                console.log('Final images array:', images); // Debug log
+
                 renderGrid();
                 showStatus(`Loaded ${images.length} items successfully!`);
+                
+                // Hide settings after successful load
+                setTimeout(() => hideSettings(), 1500);
             } catch (error) {
                 showStatus(`Error: ${error.message}`, true);
             }

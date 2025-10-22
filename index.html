@@ -695,6 +695,17 @@
 
                 console.log('Final images array:', images); // Debug log
 
+                // Log what types of URLs we have
+                images.forEach((img, i) => {
+                    console.log(`Image ${i}:`, {
+                        hasCanva: !!img.canvaUrl,
+                        hasUrl: !!img.url,
+                        hasSlides: img.slides.length,
+                        url: img.url,
+                        type: img.type
+                    });
+                });
+
                 renderGrid();
                 showStatus(`Loaded ${images.length} items successfully!`);
                 
@@ -783,6 +794,9 @@
             Object.values(carouselIntervals).forEach(interval => clearInterval(interval));
             carouselIntervals = {};
 
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+
             console.log('Rendering grid with', images.length, 'images'); // Debug
 
             if (images.length === 0) {
@@ -825,7 +839,7 @@
                     if (isFromCanva) {
                         const slide = document.createElement('div');
                         slide.className = 'carousel-slide active';
-                        const media = createMediaElement(img.canvaUrl, img.name);
+                        const media = createMediaElement(img.canvaUrl, img.name, false, apiUrl, apiKey);
                         if (media) {
                             slide.appendChild(media.element);
                         }
@@ -835,7 +849,7 @@
                             const slide = document.createElement('div');
                             slide.className = `carousel-slide ${slideIndex === 0 ? 'active' : ''}`;
                             
-                            const media = createMediaElement(slideUrl, `${img.name} - Slide ${slideIndex + 1}`);
+                            const media = createMediaElement(slideUrl, `${img.name} - Slide ${slideIndex + 1}`, true, apiUrl, apiKey);
                             if (media) {
                                 slide.appendChild(media.element);
                             }
@@ -878,7 +892,7 @@
                     }
 
                 } else if (img.type === 'Reel' && primarySource) {
-                    const media = createMediaElement(primarySource, img.name);
+                    const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey);
                     if (media) {
                         item.appendChild(media.element);
                         
@@ -894,7 +908,7 @@
                     item.appendChild(indicator);
 
                 } else if (primarySource) {
-                    const media = createMediaElement(primarySource, img.name);
+                    const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey);
                     if (media) {
                         item.appendChild(media.element);
                     }

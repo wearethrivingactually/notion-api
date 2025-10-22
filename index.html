@@ -478,17 +478,68 @@
             const content = document.getElementById('lightboxContent');
             content.innerHTML = '';
 
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
             const primarySource = img.canvaUrl || img.url;
+            const isFromCanva = !!img.canvaUrl;
             
             if (img.type === 'Carousel' && img.slides.length > 0) {
-                // Show first slide in lightbox
-                const media = createMediaElement(img.slides[0], img.name);
-                if (media) {
-                    content.appendChild(media.element);
+                // Create carousel in lightbox
+                const carouselContainer = document.createElement('div');
+                carouselContainer.style.position = 'relative';
+                carouselContainer.style.maxWidth = '90vw';
+                carouselContainer.style.maxHeight = '90vh';
+                
+                img.slides.forEach((slideUrl, index) => {
+                    const slideDiv = document.createElement('div');
+                    slideDiv.style.display = index === 0 ? 'block' : 'none';
+                    slideDiv.className = 'lightbox-slide';
+                    
+                    const media = createMediaElement(slideUrl, img.name, true, apiUrl, apiKey);
+                    if (media) {
+                        if (media.type === 'video') {
+                            media.element.controls = true;
+                            media.element.muted = false;
+                        }
+                        slideDiv.appendChild(media.element);
+                    }
+                    carouselContainer.appendChild(slideDiv);
+                });
+                
+                // Add navigation if multiple slides
+                if (img.slides.length > 1) {
+                    let currentSlide = 0;
+                    const prevBtn = document.createElement('button');
+                    prevBtn.innerHTML = '‹';
+                    prevBtn.style.cssText = 'position:absolute;left:20px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.9);border:none;font-size:40px;padding:10px 20px;cursor:pointer;border-radius:4px;z-index:10001;';
+                    prevBtn.onclick = () => {
+                        document.querySelectorAll('.lightbox-slide')[currentSlide].style.display = 'none';
+                        currentSlide = (currentSlide - 1 + img.slides.length) % img.slides.length;
+                        document.querySelectorAll('.lightbox-slide')[currentSlide].style.display = 'block';
+                    };
+                    
+                    const nextBtn = document.createElement('button');
+                    nextBtn.innerHTML = '›';
+                    nextBtn.style.cssText = 'position:absolute;right:20px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.9);border:none;font-size:40px;padding:10px 20px;cursor:pointer;border-radius:4px;z-index:10001;';
+                    nextBtn.onclick = () => {
+                        document.querySelectorAll('.lightbox-slide')[currentSlide].style.display = 'none';
+                        currentSlide = (currentSlide + 1) % img.slides.length;
+                        document.querySelectorAll('.lightbox-slide')[currentSlide].style.display = 'block';
+                    };
+                    
+                    carouselContainer.appendChild(prevBtn);
+                    carouselContainer.appendChild(nextBtn);
                 }
+                
+                content.appendChild(carouselContainer);
             } else if (primarySource) {
-                const media = createMediaElement(primarySource, img.name);
+                const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey);
                 if (media) {
+                    if (media.type === 'video') {
+                        media.element.controls = true;
+                        media.element.muted = false;
+                        media.element.autoplay = true;
+                    }
                     content.appendChild(media.element);
                 }
             }
@@ -685,19 +736,28 @@
                     
                     const canvaUrl = page.properties['Canva URL']?.url || null;
                     const imageFiles = page.properties.Image?.files || [];
-                    const imageUrl = imageFiles.length > 0 ? imageFiles[0].file?.url || imageFiles[0].external?.url : null;
-                    const type = page.properties.Type?.select?.name || 'Photo';
-                    const slides = page.properties.Slides?.files || [];
-                    const slideUrls = slides.map(slide => slide.file?.url || slide.external?.url).filter(url => url);
                     
-                    console.log('Extracted data:', { canvaUrl, imageUrl, type, slideUrls }); // Debug log
+                    // Get all file URLs from Image property
+                    const allImageUrls = imageFiles.map(file => file.file?.url || file.external?.url).filter(url => url);
+                    
+                    const type = page.properties.Type?.select?.name || 'Photo';
+                    
+                    // If multiple images, treat as carousel regardless of type
+                    const isCarousel = allImageUrls.length > 1 || type === 'Carousel';
+                    const finalType = isCarousel ? 'Carousel' : type;
+                    
+                    // First image as main URL, rest as slides
+                    const imageUrl = allImageUrls.length > 0 ? allImageUrls[0] : null;
+                    const slideUrls = allImageUrls.length > 1 ? allImageUrls : [];
+                    
+                    console.log('Extracted data:', { canvaUrl, imageUrl, type: finalType, slideCount: slideUrls.length }); // Debug log
                     
                     return {
                         id: page.id,
                         name: page.properties.Name?.title[0]?.plain_text || 'Untitled',
                         canvaUrl: convertToCanvaEmbedUrl(canvaUrl),
                         url: imageUrl,
-                        type: type,
+                        type: finalType,
                         slides: slideUrls,
                         order: page.properties.Order?.number || 0
                     };
@@ -835,9 +895,11 @@
                 item.addEventListener('drop', handleDrop);
                 item.addEventListener('dragend', handleDragEnd);
 
-                // Double-click to open lightbox
-                item.addEventListener('dblclick', () => {
+                // Double-click to open lightbox (but not when in drag mode)
+                item.addEventListener('dblclick', (e) => {
                     if (!dragMode) {
+                        e.preventDefault();
+                        e.stopPropagation();
                         openLightbox(img);
                     }
                 });

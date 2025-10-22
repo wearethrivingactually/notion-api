@@ -1,11 +1,43 @@
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Handle image proxy requests
+  if (req.method === 'GET' && req.query.proxyImage) {
+    const imageUrl = req.query.proxyImage;
+    const apiKey = req.query.apiKey;
+
+    if (!imageUrl || !apiKey) {
+      return res.status(400).json({ error: 'Missing image URL or API key' });
+    }
+
+    try {
+      const imageResponse = await fetch(imageUrl, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        }
+      });
+
+      if (!imageResponse.ok) {
+        throw new Error('Failed to fetch image');
+      }
+
+      const contentType = imageResponse.headers.get('content-type');
+      const imageBuffer = await imageResponse.arrayBuffer();
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(Buffer.from(imageBuffer));
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    return;
   }
 
   if (req.method !== 'POST') {

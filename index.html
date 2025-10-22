@@ -691,8 +691,13 @@
                         slides: slideUrls,
                         order: page.properties.Order?.number || 0
                     };
-                }).filter(img => img.canvaUrl || img.url || img.slides.length > 0);
+                });
+                
+                console.log('Before filtering:', images.length, 'items');
+                
+                images = images.filter(img => img.canvaUrl || img.url || img.slides.length > 0);
 
+                console.log('After filtering:', images.length, 'items');
                 console.log('Final images array:', images); // Debug log
 
                 // Log what types of URLs we have

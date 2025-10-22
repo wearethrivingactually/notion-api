@@ -836,6 +836,7 @@
                 const isFromCanva = !!img.canvaUrl;
 
                 console.log('Primary source for item', index, ':', primarySource); // Debug
+                console.log('isFromCanva:', isFromCanva, 'img.type:', img.type); // Debug
 
                 if (img.type === 'Carousel' && (isFromCanva || img.slides.length > 0)) {
                     const carouselContainer = document.createElement('div');
@@ -913,10 +914,16 @@
                     item.appendChild(indicator);
 
                 } else if (primarySource) {
+                    console.log('Rendering regular photo/video for item', index); // Debug
                     const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey);
+                    console.log('Media element created:', media); // Debug
                     if (media) {
                         item.appendChild(media.element);
+                    } else {
+                        console.error('Failed to create media element for item', index);
                     }
+                } else {
+                    console.warn('No primary source for item', index, img);
                 }
 
                 if (isFromCanva) {

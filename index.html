@@ -576,8 +576,18 @@
         function getMediaType(url) {
             if (!url) return null;
             const lower = url.toLowerCase();
-            if (lower.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) return 'image';
-            if (lower.match(/\.(mp4|webm|ogg|mov)$/)) return 'video';
+            
+            // Check for image extensions (with or without query params)
+            if (lower.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/)) return 'image';
+            
+            // Check for video extensions (with or without query params)
+            if (lower.match(/\.(mp4|webm|ogg|mov)(\?|$)/)) return 'video';
+            
+            // If it's from Notion's S3, assume it's an image if we can't determine
+            if (lower.includes('amazonaws.com') && lower.includes('prod-files-secure')) {
+                return 'image'; // Default to image for Notion files
+            }
+            
             return null;
         }
 

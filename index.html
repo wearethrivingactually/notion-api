@@ -815,7 +815,8 @@
             
             const match = url.match(/canva\.com\/design\/([^\/\?]+)/);
             if (match && match[1]) {
-                return `https://www.canva.com/design/${match[1]}/view?embed`;
+                // Add embed parameter and allow-same-origin for better Safari compatibility
+                return `https://www.canva.com/design/${match[1]}/view?embed&ui=eyJBIjp7fX0`;
             }
             
             return url;

@@ -756,13 +756,27 @@
 
         // Load saved credentials on page load
         window.addEventListener('DOMContentLoaded', () => {
-            const savedApiUrl = localStorage.getItem('apiUrl');
-            const savedDatabaseId = localStorage.getItem('databaseId');
-            const savedApiKey = localStorage.getItem('apiKey');
+            // First, check URL parameters for credentials (for cross-device sharing)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlApiUrl = urlParams.get('apiUrl');
+            const urlDatabaseId = urlParams.get('databaseId');
+            const urlApiKey = urlParams.get('apiKey');
+            
+            // Use URL params if available, otherwise fall back to localStorage
+            const savedApiUrl = urlApiUrl || localStorage.getItem('apiUrl');
+            const savedDatabaseId = urlDatabaseId || localStorage.getItem('databaseId');
+            const savedApiKey = urlApiKey || localStorage.getItem('apiKey');
             
             if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
             if (savedDatabaseId) document.getElementById('databaseId').value = savedDatabaseId;
             if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
+            
+            // Save to localStorage if coming from URL params
+            if (urlApiUrl || urlDatabaseId || urlApiKey) {
+                if (savedApiUrl) localStorage.setItem('apiUrl', savedApiUrl);
+                if (savedDatabaseId) localStorage.setItem('databaseId', savedDatabaseId);
+                if (savedApiKey) localStorage.setItem('apiKey', savedApiKey);
+            }
             
             // Auto-load if all credentials are present
             if (savedApiUrl && savedDatabaseId && savedApiKey) {
@@ -776,6 +790,13 @@
             localStorage.setItem('apiUrl', apiUrl);
             localStorage.setItem('databaseId', databaseId);
             localStorage.setItem('apiKey', apiKey);
+            
+            // Update URL with credentials (for sharing across devices/browsers)
+            const url = new URL(window.location);
+            url.searchParams.set('apiUrl', apiUrl);
+            url.searchParams.set('databaseId', databaseId);
+            url.searchParams.set('apiKey', apiKey);
+            window.history.replaceState({}, '', url);
         }
 
         async function loadFromNotion() {
@@ -792,6 +813,10 @@
             saveCredentials(apiUrl, databaseId, apiKey);
 
             try {
+                console.log('=== LOADING FROM NOTION ===');
+                console.log('API URL:', apiUrl);
+                console.log('Database ID:', databaseId);
+                
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
@@ -804,17 +829,25 @@
                     })
                 });
 
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+
                 if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('API Error Response:', errorText);
+                    throw new Error(`API error: ${response.status} - ${errorText}`);
                 }
 
                 const data = await response.json();
+                console.log('API Response data:', data);
                 
                 if (data.error) {
+                    console.error('Notion API Error:', data.error);
                     throw new Error(data.error);
                 }
 
                 console.log('Notion API Response:', data); // Debug log
+                console.log('Number of results:', data.results?.length);
 
                 images = data.results.map(page => {
                     console.log('Processing page:', page); // Debug log
@@ -822,8 +855,13 @@
                     const canvaUrl = page.properties['Canva URL']?.url || null;
                     const imageFiles = page.properties.Image?.files || [];
                     
+                    console.log('  - Canva URL:', canvaUrl);
+                    console.log('  - Image files:', imageFiles);
+                    
                     // Get all file URLs from Image property
                     const allImageUrls = imageFiles.map(file => file.file?.url || file.external?.url).filter(url => url);
+                    
+                    console.log('  - All image URLs:', allImageUrls);
                     
                     const type = page.properties.Type?.select?.name || 'Photo';
                     
@@ -849,6 +887,7 @@
                 });
                 
                 console.log('Before filtering:', images.length, 'items');
+                console.log('All images before filter:', images);
                 
                 images = images.filter(img => img.canvaUrl || img.url || img.slides.length > 0);
 
@@ -862,6 +901,7 @@
                         hasUrl: !!img.url,
                         hasSlides: img.slides.length,
                         url: img.url,
+                        canvaUrl: img.canvaUrl,
                         type: img.type
                     });
                 });
@@ -872,6 +912,10 @@
                 // Hide settings after successful load
                 setTimeout(() => hideSettings(), 1500);
             } catch (error) {
+                console.error('=== ERROR LOADING ===');
+                console.error('Error object:', error);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
                 showStatus(`Error: ${error.message}`, true);
             }
         }
@@ -916,9 +960,13 @@
         function createMediaElement(url, alt, useProxy, apiUrl, apiKey) {
             const mediaType = getMediaType(url);
             
+            // Notion S3 URLs are already public and signed - don't proxy them
+            const isNotionS3 = url && url.includes('amazonaws.com') && url.includes('prod-files-secure');
+            const shouldProxy = useProxy && !isNotionS3 && apiUrl && apiKey;
+            
             if (mediaType === 'video') {
                 const video = document.createElement('video');
-                if (useProxy && apiUrl && apiKey) {
+                if (shouldProxy) {
                     video.src = `${apiUrl}?proxyImage=${encodeURIComponent(url)}&apiKey=${encodeURIComponent(apiKey)}`;
                 } else {
                     video.src = url;
@@ -930,7 +978,7 @@
                 return { element: video, type: 'video' };
             } else if (mediaType === 'image') {
                 const img = document.createElement('img');
-                if (useProxy && apiUrl && apiKey) {
+                if (shouldProxy) {
                     img.src = `${apiUrl}?proxyImage=${encodeURIComponent(url)}&apiKey=${encodeURIComponent(apiKey)}`;
                 } else {
                     img.src = url;
@@ -938,6 +986,7 @@
                 img.alt = alt;
                 img.onerror = () => {
                     console.error('Image failed to load:', url);
+                    console.error('Was using proxy:', shouldProxy);
                     img.style.display = 'none';
                     const placeholder = document.createElement('div');
                     placeholder.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;color:#999;font-size:12px;padding:10px;text-align:center;';

@@ -199,30 +199,6 @@
             cursor: grabbing;
         }
 
-        /* Invisible overlay to block Canva fullscreen button */
-        .grid-item::after {
-            content: '';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 40px;
-            height: 40px;
-            background: transparent;
-            z-index: 15;
-            pointer-events: auto;
-        }
-
-        .grid-item.drag-mode::after {
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: auto;
-            height: auto;
-            z-index: 100;
-            cursor: grab;
-        }
-
         .drag-handle {
             display: none;
         }

@@ -235,7 +235,8 @@
 
         .grid-item.reel iframe {
             transform: translate(-50%, -50%);
-            height: 100%;
+            width: 100%;
+            height: 130%; /* Show more vertical content */
             -webkit-transform: translate(-50%, -50%);
         }
 
@@ -438,17 +439,19 @@
         }
 
         .lightbox-content iframe {
-            width: 90vw;
-            max-width: 600px;
+            width: auto;
             height: 90vh;
-            max-height: 1066px;
+            max-width: 90vw;
+            max-height: 90vh;
             border: none;
+            aspect-ratio: 9/16; /* Default to portrait for Canva designs */
         }
 
         @media (max-width: 768px) {
             .lightbox-content iframe {
                 width: 95vw;
-                height: 85vh;
+                height: auto;
+                max-height: 85vh;
             }
         }
 

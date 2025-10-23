@@ -538,7 +538,30 @@
         let carouselIntervals = {};
         let dragMode = false;
         
-        // Mobile touch support variables
+        // Detect if we're in an environment that supports iframes well
+        function canUseIframes() {
+            // Check if we're in mobile Notion or Safari which block iframes
+            const isMobileNotion = /Notion/.test(navigator.userAgent) && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            
+            // Don't use iframes in these environments
+            if (isMobileNotion || isIOS) {
+                console.log('Environment detected: mobile/iOS - will use image fallbacks for Canva');
+                return false;
+            }
+            
+            // Safari on desktop has mixed results, but let's try
+            if (isSafari) {
+                console.log('Safari detected - will attempt Canva iframes with fallback');
+                return true; // Try it, but we'll have fallback logic
+            }
+            
+            return true;
+        }
+
+        const SUPPORTS_IFRAMES = canUseIframes();
+
         let touchStartTime = 0;
         let touchStartPos = { x: 0, y: 0 };
         let longPressTimer = null;
@@ -556,8 +579,26 @@
 
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const apiKey = document.getElementById('apiKey').value.trim();
-            const primarySource = img.canvaUrl || img.url;
-            const isFromCanva = !!img.canvaUrl;
+            
+            // Use same smart selection logic as grid
+            let primarySource;
+            let isFromCanva = false;
+            
+            if (img.canvaUrl && img.imageUrl) {
+                if (SUPPORTS_IFRAMES) {
+                    primarySource = img.canvaUrl;
+                    isFromCanva = true;
+                } else {
+                    primarySource = img.imageUrl;
+                    isFromCanva = false;
+                }
+            } else if (img.canvaUrl) {
+                primarySource = img.canvaUrl;
+                isFromCanva = true;
+            } else {
+                primarySource = img.imageUrl || img.url;
+                isFromCanva = false;
+            }
             
             if (img.type === 'Carousel' && img.slides.length > 0) {
                 // Create carousel in lightbox
@@ -571,7 +612,7 @@
                     slideDiv.style.display = index === 0 ? 'block' : 'none';
                     slideDiv.className = 'lightbox-slide';
                     
-                    const media = createMediaElement(slideUrl, img.name, true, apiUrl, apiKey);
+                    const media = createMediaElement(slideUrl, img.name, true, apiUrl, apiKey, null);
                     if (media) {
                         if (media.type === 'video') {
                             media.element.controls = true;
@@ -609,7 +650,8 @@
                 
                 content.appendChild(carouselContainer);
             } else if (primarySource) {
-                const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey);
+                const fallback = isFromCanva ? img.imageUrl : null;
+                const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey, fallback);
                 if (media) {
                     if (media.type === 'video') {
                         media.element.controls = true;
@@ -754,6 +796,22 @@
             return url;
         }
 
+        function getCanvaDesignId(url) {
+            if (!url) return null;
+            const match = url.match(/canva\.com\/design\/([^\/\?]+)/);
+            return match ? match[1] : null;
+        }
+
+        function getCanvaThumbnailUrl(url) {
+            // Try to get thumbnail URL from Canva design
+            // Canva doesn't have a public API for this, but we can try the view URL without embed
+            const designId = getCanvaDesignId(url);
+            if (!designId) return null;
+            
+            // Try direct view link (might work better than embed on mobile)
+            return `https://www.canva.com/design/${designId}/view`;
+        }
+
         // Load saved credentials on page load
         window.addEventListener('DOMContentLoaded', () => {
             // First, check URL parameters for credentials (for cross-device sharing)
@@ -873,13 +931,20 @@
                     const imageUrl = allImageUrls.length > 0 ? allImageUrls[0] : null;
                     const slideUrls = allImageUrls.length > 1 ? allImageUrls : [];
                     
-                    console.log('Extracted data:', { canvaUrl, imageUrl, type: finalType, slideCount: slideUrls.length }); // Debug log
+                    console.log('Extracted data:', { 
+                        canvaUrl, 
+                        imageUrl, 
+                        type: finalType, 
+                        slideCount: slideUrls.length,
+                        supportsIframes: SUPPORTS_IFRAMES
+                    });
                     
                     return {
                         id: page.id,
                         name: page.properties.Name?.title[0]?.plain_text || 'Untitled',
                         canvaUrl: convertToCanvaEmbedUrl(canvaUrl),
-                        url: imageUrl,
+                        imageUrl: imageUrl, // Keep this separate
+                        url: imageUrl, // For backward compatibility
                         type: finalType,
                         slides: slideUrls,
                         order: page.properties.Order?.number || 0
@@ -957,7 +1022,7 @@
             }
         }
 
-        function createMediaElement(url, alt, useProxy, apiUrl, apiKey) {
+        function createMediaElement(url, alt, useProxy, apiUrl, apiKey, fallbackUrl) {
             const mediaType = getMediaType(url);
             
             // Notion S3 URLs are already public and signed - don't proxy them
@@ -996,28 +1061,95 @@
                 img.onload = () => console.log('Image loaded successfully:', url);
                 return { element: img, type: 'image' };
             } else if (isCanvaUrl(url)) {
-                // Try iframe first, but it may not work on mobile
+                const container = document.createElement('div');
+                container.style.cssText = 'width:100%;height:100%;position:relative;';
+                
+                // For mobile, try using an anchor + image approach instead of iframe
+                if (!SUPPORTS_IFRAMES) {
+                    console.log('Mobile detected - using click-to-open Canva approach');
+                    
+                    // Create a clickable link that opens Canva
+                    const link = document.createElement('a');
+                    link.href = url.replace('view?embed', 'view'); // Remove embed parameter
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.style.cssText = 'display:block;width:100%;height:100%;position:relative;text-decoration:none;';
+                    
+                    if (fallbackUrl) {
+                        // Use fallback image if available
+                        const img = document.createElement('img');
+                        img.src = fallbackUrl;
+                        img.alt = alt;
+                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                        link.appendChild(img);
+                        
+                        // Add "Open in Canva" overlay
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = 'position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,199,190,0.9);color:white;padding:8px;border-radius:4px;font-size:12px;text-align:center;font-weight:600;';
+                        overlay.textContent = 'Tap to open in Canva';
+                        link.appendChild(overlay);
+                    } else {
+                        // No fallback - show placeholder with Canva logo
+                        const placeholder = document.createElement('div');
+                        placeholder.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f0f0;';
+                        placeholder.innerHTML = `
+                            <div style="color:#00c7be;font-size:48px;margin-bottom:8px;">📱</div>
+                            <div style="color:#666;font-size:14px;font-weight:600;">Tap to view in Canva</div>
+                        `;
+                        link.appendChild(placeholder);
+                    }
+                    
+                    container.appendChild(link);
+                    return { element: container, type: 'canva' };
+                }
+                
+                // Desktop: Try iframe with fallback
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
                 iframe.loading = 'lazy';
                 iframe.setAttribute('allowfullscreen', '');
-                iframe.style.border = 'none';
+                iframe.style.cssText = 'width:100%;height:100%;border:none;';
                 
-                // Detect if iframe fails to load (mobile Notion, Safari, etc.)
                 let iframeLoaded = false;
+                let fallbackApplied = false;
+                
+                // Success handler
                 iframe.onload = () => {
                     iframeLoaded = true;
+                    console.log('Canva iframe loaded successfully:', url);
                 };
                 
-                // After a short delay, check if iframe loaded
-                setTimeout(() => {
-                    if (!iframeLoaded) {
-                        console.warn('Canva iframe may not have loaded:', url);
+                // Error handler - switch to fallback image if available
+                iframe.onerror = () => {
+                    console.error('Canva embed failed to load:', url);
+                    if (fallbackUrl && !fallbackApplied) {
+                        console.log('Switching to fallback image:', fallbackUrl);
+                        fallbackApplied = true;
+                        const img = document.createElement('img');
+                        img.src = fallbackUrl;
+                        img.alt = alt;
+                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                        container.innerHTML = '';
+                        container.appendChild(img);
                     }
-                }, 2000);
+                };
                 
-                iframe.onerror = () => console.error('Canva embed failed to load:', url);
-                return { element: iframe, type: 'canva' };
+                // Timeout check - if iframe didn't load after 3 seconds and we have fallback, use it
+                setTimeout(() => {
+                    if (!iframeLoaded && fallbackUrl && !fallbackApplied) {
+                        console.warn('Canva iframe timeout, switching to fallback:', fallbackUrl);
+                        fallbackApplied = true;
+                        const img = document.createElement('img');
+                        img.src = fallbackUrl;
+                        img.alt = alt;
+                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                        container.innerHTML = '';
+                        container.appendChild(img);
+                    }
+                }, 3000);
+                
+                container.appendChild(iframe);
+                return { element: container, type: 'canva' };
             }
             
             return null;
@@ -1169,11 +1301,35 @@
                     }
                 });
 
-                const primarySource = img.url || img.canvaUrl; // Prefer img.url (screenshot) over canvaUrl
-                const isFromCanva = !img.url && !!img.canvaUrl; // Only true if using Canva iframe (no screenshot)
+                // Smart source selection based on environment
+                let primarySource;
+                let isFromCanva = false;
+                
+                if (img.canvaUrl && img.imageUrl) {
+                    // Both available - choose based on environment
+                    if (SUPPORTS_IFRAMES) {
+                        primarySource = img.canvaUrl;
+                        isFromCanva = true;
+                        console.log('Using Canva iframe (desktop environment)');
+                    } else {
+                        primarySource = img.imageUrl;
+                        isFromCanva = false;
+                        console.log('Using image fallback (mobile/Safari environment)');
+                    }
+                } else if (img.canvaUrl) {
+                    // Only Canva available
+                    primarySource = img.canvaUrl;
+                    isFromCanva = true;
+                    console.log('Using Canva iframe (only option)');
+                } else {
+                    // Only image available
+                    primarySource = img.imageUrl || img.url;
+                    isFromCanva = false;
+                    console.log('Using image (only option)');
+                }
 
-                console.log('Primary source for item', index, ':', primarySource); // Debug
-                console.log('isFromCanva:', isFromCanva, 'img.type:', img.type); // Debug
+                console.log('Primary source for item', index, ':', primarySource);
+                console.log('isFromCanva:', isFromCanva, 'img.type:', img.type);
 
                 if (img.type === 'Carousel' && (isFromCanva || img.slides.length > 0)) {
                     const carouselContainer = document.createElement('div');
@@ -1182,7 +1338,7 @@
                     if (isFromCanva) {
                         const slide = document.createElement('div');
                         slide.className = 'carousel-slide active';
-                        const media = createMediaElement(img.canvaUrl, img.name, false, apiUrl, apiKey);
+                        const media = createMediaElement(img.canvaUrl, img.name, false, apiUrl, apiKey, img.imageUrl);
                         if (media) {
                             slide.appendChild(media.element);
                         }
@@ -1237,7 +1393,8 @@
                     }
 
                 } else if (img.type === 'Reel' && primarySource) {
-                    const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey);
+                    const fallback = isFromCanva ? img.imageUrl : null;
+                    const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey, fallback);
                     if (media) {
                         item.appendChild(media.element);
                         
@@ -1256,7 +1413,8 @@
 
                 } else if (primarySource) {
                     console.log('Rendering regular photo/video for item', index); // Debug
-                    const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey);
+                    const fallback = isFromCanva ? img.imageUrl : null;
+                    const media = createMediaElement(primarySource, img.name, !isFromCanva, apiUrl, apiKey, fallback);
                     console.log('Media element created:', media); // Debug
                     if (media) {
                         item.appendChild(media.element);

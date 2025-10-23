@@ -278,35 +278,26 @@
             position: absolute;
             top: 8px;
             right: 8px;
-            background: rgba(0, 0, 0, 0.7);
             color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 16px;
             z-index: 10;
             display: flex;
             align-items: center;
-            gap: 4px;
+            filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
         }
 
         .carousel-indicator {
             position: absolute;
             top: 8px;
             right: 8px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 4px;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 10;
+            filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
         }
 
-        .carousel-indicator img {
+        .carousel-indicator svg {
             width: 16px;
             height: 16px;
             display: block;
@@ -1041,7 +1032,9 @@
 
                     const indicator = document.createElement('div');
                     indicator.className = 'media-indicator';
-                    indicator.innerHTML = '▶';
+                    indicator.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+                        <path fill="#fff" d="M4,2 L4,14 L13,8 Z"/>
+                    </svg>`;
                     item.appendChild(indicator);
 
                 } else if (primarySource) {

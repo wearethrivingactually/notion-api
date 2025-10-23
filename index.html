@@ -997,9 +997,10 @@
 
                     const indicator = document.createElement('div');
                     indicator.className = 'carousel-indicator';
-                    indicator.textContent = '1/' + img.slides.length;
-                    indicator.style.fontSize = '10px';
-                    indicator.style.fontWeight = 'bold';
+                    indicator.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14.82 14.87" width="16" height="16">
+                        <path fill="#fff" d="M13.6,2.32v8.48c0,1.54-1.25,2.8-2.8,2.8H2.26c.25.74.94,1.27,1.76,1.27h6.97c2.12,0,3.84-1.72,3.84-3.84v-6.97c0-.8-.51-1.48-1.22-1.74Z"/>
+                        <rect fill="#fff" width="12.66" height="12.66" rx="1.85" ry="1.85"/>
+                    </svg>`;
                     item.appendChild(indicator);
 
                     if (!isFromCanva && img.slides.length > 1) {

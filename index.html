@@ -234,10 +234,11 @@
         }
 
         .grid-item.reel iframe {
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%) scale(1.5);
+            transform-origin: center center;
             width: 100%;
-            height: 130%; /* Show more vertical content */
-            -webkit-transform: translate(-50%, -50%);
+            height: 100%;
+            -webkit-transform: translate(-50%, -50%) scale(1.5);
         }
 
         .grid-item.dragging iframe {

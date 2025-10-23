@@ -183,6 +183,12 @@
             cursor: grabbing;
         }
 
+        .grid-item.drag-mode iframe,
+        .grid-item.drag-mode video,
+        .grid-item.drag-mode img {
+            pointer-events: none;
+        }
+
         .drag-handle {
             display: none;
         }
@@ -212,6 +218,12 @@
 
         .grid-item.dragging {
             opacity: 0.5;
+        }
+
+        .grid-item.dragging iframe,
+        .grid-item.dragging video,
+        .grid-item.dragging img {
+            pointer-events: none;
         }
 
         .grid-item.drag-over {
@@ -549,6 +561,15 @@
 
         function closeLightbox() {
             const lightbox = document.getElementById('lightbox');
+            const content = document.getElementById('lightboxContent');
+            
+            // Pause all videos when closing
+            const videos = content.querySelectorAll('video');
+            videos.forEach(video => {
+                video.pause();
+                video.currentTime = 0;
+            });
+            
             lightbox.classList.remove('active');
         }
 

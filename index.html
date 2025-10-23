@@ -154,6 +154,10 @@
             border-top: 1px solid #f0f0f0;
         }
 
+        .menu-item.share {
+            color: #0066ff;
+        }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -520,6 +524,10 @@
                     <span class="icon">⚙️</span>
                     <span>Settings</span>
                 </div>
+                <div class="menu-item share" onclick="copyShareLink(); closeMenu();">
+                    <span class="icon">🔗</span>
+                    <span>Copy Share Link</span>
+                </div>
             </div>
         </div>
 
@@ -812,6 +820,43 @@
             return `https://www.canva.com/design/${designId}/view`;
         }
 
+        function copyShareLink() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const databaseId = document.getElementById('databaseId').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!apiUrl || !databaseId || !apiKey) {
+                showStatus('Please configure settings first', true);
+                return;
+            }
+
+            // Create shareable URL with credentials
+            const shareUrl = new URL(window.location.href.split('?')[0]);
+            shareUrl.searchParams.set('apiUrl', apiUrl);
+            shareUrl.searchParams.set('databaseId', databaseId);
+            shareUrl.searchParams.set('apiKey', apiKey);
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(shareUrl.toString()).then(() => {
+                showStatus('✅ Share link copied! Paste it anywhere to stay logged in.');
+            }).catch(err => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = shareUrl.toString();
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showStatus('✅ Share link copied! Paste it anywhere to stay logged in.');
+                } catch (err) {
+                    showStatus('Failed to copy link', true);
+                }
+                document.body.removeChild(textArea);
+            });
+        }
+
         // Load saved credentials on page load
         window.addEventListener('DOMContentLoaded', () => {
             // First, check URL parameters for credentials (for cross-device sharing)
@@ -1064,46 +1109,55 @@
                 const container = document.createElement('div');
                 container.style.cssText = 'width:100%;height:100%;position:relative;';
                 
-                // For mobile, try using an anchor + image approach instead of iframe
-                if (!SUPPORTS_IFRAMES) {
-                    console.log('Mobile detected - using click-to-open Canva approach');
+                // For mobile WITHOUT fallback, create click-to-open experience
+                if (!SUPPORTS_IFRAMES && !fallbackUrl) {
+                    console.log('Mobile without fallback - using click-to-open Canva approach');
                     
                     // Create a clickable link that opens Canva
                     const link = document.createElement('a');
                     link.href = url.replace('view?embed', 'view'); // Remove embed parameter
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
-                    link.style.cssText = 'display:block;width:100%;height:100%;position:relative;text-decoration:none;';
+                    link.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;background:#f0f0f0;text-decoration:none;';
                     
-                    if (fallbackUrl) {
-                        // Use fallback image if available
-                        const img = document.createElement('img');
-                        img.src = fallbackUrl;
-                        img.alt = alt;
-                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-                        link.appendChild(img);
-                        
-                        // Add "Open in Canva" overlay
-                        const overlay = document.createElement('div');
-                        overlay.style.cssText = 'position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,199,190,0.9);color:white;padding:8px;border-radius:4px;font-size:12px;text-align:center;font-weight:600;';
-                        overlay.textContent = 'Tap to open in Canva';
-                        link.appendChild(overlay);
-                    } else {
-                        // No fallback - show placeholder with Canva logo
-                        const placeholder = document.createElement('div');
-                        placeholder.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0f0f0;';
-                        placeholder.innerHTML = `
-                            <div style="color:#00c7be;font-size:48px;margin-bottom:8px;">📱</div>
-                            <div style="color:#666;font-size:14px;font-weight:600;">Tap to view in Canva</div>
-                        `;
-                        link.appendChild(placeholder);
-                    }
+                    // Show placeholder with Canva logo
+                    link.innerHTML = `
+                        <div style="color:#00c7be;font-size:48px;margin-bottom:8px;">📱</div>
+                        <div style="color:#666;font-size:14px;font-weight:600;">Tap to view in Canva</div>
+                    `;
                     
                     container.appendChild(link);
                     return { element: container, type: 'canva' };
                 }
                 
-                // Desktop: Try iframe with fallback
+                // For mobile WITH fallback, show image with overlay
+                if (!SUPPORTS_IFRAMES && fallbackUrl) {
+                    console.log('Mobile with fallback - showing image with tap-to-open overlay');
+                    
+                    const link = document.createElement('a');
+                    link.href = url.replace('view?embed', 'view');
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.style.cssText = 'display:block;width:100%;height:100%;position:relative;text-decoration:none;';
+                    
+                    const img = document.createElement('img');
+                    img.src = fallbackUrl;
+                    img.alt = alt;
+                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                    link.appendChild(img);
+                    
+                    // Add "Open in Canva" overlay
+                    const overlay = document.createElement('div');
+                    overlay.style.cssText = 'position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,199,190,0.9);color:white;padding:8px;border-radius:4px;font-size:12px;text-align:center;font-weight:600;';
+                    overlay.textContent = 'Tap to open in Canva';
+                    link.appendChild(overlay);
+                    
+                    container.appendChild(link);
+                    return { element: container, type: 'canva' };
+                }
+                
+                // Desktop OR Safari: Use iframe with fallback
+                console.log('Desktop - using Canva iframe');
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
                 iframe.loading = 'lazy';
@@ -1399,8 +1453,12 @@
                         item.appendChild(media.element);
                         
                         if (media.type === 'video') {
-                            item.addEventListener('mouseenter', () => media.element.play());
-                            item.addEventListener('mouseleave', () => media.element.pause());
+                            // Find the actual video element (might be inside a container)
+                            const videoElement = media.element.tagName === 'VIDEO' ? media.element : media.element.querySelector('video');
+                            if (videoElement) {
+                                item.addEventListener('mouseenter', () => videoElement.play());
+                                item.addEventListener('mouseleave', () => videoElement.pause());
+                            }
                         }
                     }
 

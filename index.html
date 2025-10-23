@@ -162,6 +162,8 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
 
         .grid-item {
@@ -212,6 +214,7 @@
             height: 100%;
             border: none;
             pointer-events: auto;
+            -webkit-transform: translate(-50%, -50%);
         }
 
         /* Hide Canva's fullscreen button */
@@ -233,6 +236,7 @@
         .grid-item.reel iframe {
             transform: translate(-50%, -50%) scale(1.3);
             height: 140%;
+            -webkit-transform: translate(-50%, -50%) scale(1.3);
         }
 
         .grid-item.dragging iframe {

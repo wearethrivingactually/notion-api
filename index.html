@@ -209,13 +209,12 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            /* Scale up to ensure coverage, then center and crop */
-            transform: translate(-50%, -50%) scale(1.3);
+            transform: translate(-50%, -50%);
             width: 100%;
             height: 100%;
             border: none;
             pointer-events: auto;
-            -webkit-transform: translate(-50%, -50%) scale(1.3);
+            -webkit-transform: translate(-50%, -50%);
         }
 
         /* Hide Canva's fullscreen button */
@@ -235,9 +234,9 @@
         }
 
         .grid-item.reel iframe {
-            transform: translate(-50%, -50%) scale(1.3);
-            height: 140%;
-            -webkit-transform: translate(-50%, -50%) scale(1.3);
+            transform: translate(-50%, -50%);
+            height: 100%;
+            -webkit-transform: translate(-50%, -50%);
         }
 
         .grid-item.dragging iframe {
@@ -1121,69 +1120,23 @@
                 img.onload = () => console.log('Image loaded successfully:', url);
                 return { element: img, type: 'image' };
             } else if (isCanvaUrl(url)) {
-                // Canva iframe - optimized for lightbox viewing
-                const container = document.createElement('div');
-                container.style.cssText = 'width:100%;height:100%;position:relative;background:#f0f0f0;display:flex;align-items:center;justify-content:center;';
-                
+                // Canva iframe for grid and lightbox
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
-                iframe.loading = 'eager';
+                iframe.loading = 'lazy';
                 iframe.setAttribute('allowfullscreen', 'true');
                 iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
-                iframe.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0;';
+                iframe.style.cssText = 'width:100%;height:100%;border:none;';
                 
-                let loadError = false;
-                let loadTimeout = null;
+                console.log('Creating Canva iframe:', url);
                 
-                console.log('Loading Canva iframe:', url);
-                
-                iframe.onload = () => {
-                    console.log('✅ Canva iframe loaded');
-                    clearTimeout(loadTimeout);
-                    container.style.background = 'transparent';
-                };
-                
+                iframe.onload = () => console.log('✅ Canva iframe loaded');
                 iframe.onerror = () => {
                     console.error('❌ Canva iframe error - design may not be published');
-                    loadError = true;
-                    showCanvaError();
+                    console.error('Make sure to use Share → More → Embed → Generate code in Canva');
                 };
                 
-                const showCanvaError = () => {
-                    if (fallbackUrl) {
-                        // Show fallback image
-                        container.innerHTML = '';
-                        const img = document.createElement('img');
-                        img.src = fallbackUrl;
-                        img.alt = alt;
-                        img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
-                        container.appendChild(img);
-                    } else {
-                        // Show error message
-                        container.innerHTML = `
-                            <div style="text-align:center;padding:20px;color:#666;">
-                                <div style="font-size:48px;margin-bottom:12px;">⚠️</div>
-                                <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Canva design not accessible</div>
-                                <div style="font-size:12px;line-height:1.4;">
-                                    Make sure the design is published:<br/>
-                                    Share → More → Embed → Generate code
-                                </div>
-                            </div>
-                        `;
-                    }
-                };
-                
-                // Timeout to detect load failure
-                loadTimeout = setTimeout(() => {
-                    if (!loadError) {
-                        console.warn('⏱️ Canva iframe timeout - may not be published or accessible');
-                        showCanvaError();
-                    }
-                }, 4000);
-                
-                container.appendChild(iframe);
-                
-                return { element: container, type: 'canva' };
+                return { element: iframe, type: 'canva' };
             }
             
             return null;

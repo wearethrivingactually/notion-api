@@ -460,6 +460,26 @@
         .lightbox-close:hover {
             background: white;
         }
+
+        /* Mobile touch improvements */
+        @media (hover: none) and (pointer: coarse) {
+            .grid-item {
+                -webkit-tap-highlight-color: transparent;
+                touch-action: none;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+            
+            .hamburger-btn {
+                min-height: 44px;
+                min-width: 44px;
+            }
+            
+            .menu-item {
+                padding: 16px;
+                min-height: 44px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -517,6 +537,17 @@
         let draggedElement = null;
         let carouselIntervals = {};
         let dragMode = false;
+        
+        // Mobile touch support variables
+        let touchStartTime = 0;
+        let touchStartPos = { x: 0, y: 0 };
+        let longPressTimer = null;
+        let lastTapTime = 0;
+        let isDraggingTouch = false;
+        let touchDraggedElement = null;
+        const LONG_PRESS_DURATION = 500; // ms
+        const DOUBLE_TAP_DELAY = 300; // ms
+        const MOVE_THRESHOLD = 10; // px
 
         function openLightbox(img) {
             const lightbox = document.getElementById('lightbox');
@@ -608,6 +639,14 @@
 
         // Close lightbox on clicking background
         document.addEventListener('click', (e) => {
+            const lightbox = document.getElementById('lightbox');
+            if (e.target === lightbox) {
+                closeLightbox();
+            }
+        });
+
+        // Close lightbox on touch (mobile)
+        document.addEventListener('touchend', (e) => {
             const lightbox = document.getElementById('lightbox');
             if (e.target === lightbox) {
                 closeLightbox();
@@ -947,6 +986,110 @@
                         e.preventDefault();
                         e.stopPropagation();
                         openLightbox(img);
+                    }
+                });
+
+                // Mobile touch support
+                item.addEventListener('touchstart', (e) => {
+                    touchStartTime = Date.now();
+                    touchStartPos = {
+                        x: e.touches[0].clientX,
+                        y: e.touches[0].clientY
+                    };
+                    
+                    // Double tap detection
+                    const currentTime = Date.now();
+                    const tapTimeDiff = currentTime - lastTapTime;
+                    
+                    if (tapTimeDiff < DOUBLE_TAP_DELAY && tapTimeDiff > 0) {
+                        // Double tap detected
+                        e.preventDefault();
+                        clearTimeout(longPressTimer);
+                        openLightbox(img);
+                        lastTapTime = 0;
+                        return;
+                    }
+                    
+                    lastTapTime = currentTime;
+                    
+                    // Long press detection
+                    longPressTimer = setTimeout(() => {
+                        if (!isDraggingTouch) {
+                            // Start drag mode
+                            isDraggingTouch = true;
+                            touchDraggedElement = item;
+                            item.classList.add('dragging');
+                            item.style.opacity = '0.5';
+                            navigator.vibrate && navigator.vibrate(50);
+                        }
+                    }, LONG_PRESS_DURATION);
+                }, { passive: false });
+
+                item.addEventListener('touchmove', (e) => {
+                    const touch = e.touches[0];
+                    const moveX = Math.abs(touch.clientX - touchStartPos.x);
+                    const moveY = Math.abs(touch.clientY - touchStartPos.y);
+                    
+                    // Cancel long press if moved too much
+                    if ((moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) && !isDraggingTouch) {
+                        clearTimeout(longPressTimer);
+                    }
+                    
+                    // Handle dragging
+                    if (isDraggingTouch && touchDraggedElement) {
+                        e.preventDefault();
+                        
+                        // Find element under touch point
+                        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                        const targetItem = targetElement?.closest('.grid-item');
+                        
+                        if (targetItem && targetItem !== touchDraggedElement) {
+                            // Highlight potential drop target
+                            document.querySelectorAll('.grid-item').forEach(i => i.classList.remove('drag-over'));
+                            targetItem.classList.add('drag-over');
+                        }
+                    }
+                }, { passive: false });
+
+                item.addEventListener('touchend', (e) => {
+                    clearTimeout(longPressTimer);
+                    
+                    if (isDraggingTouch && touchDraggedElement) {
+                        e.preventDefault();
+                        
+                        const touch = e.changedTouches[0];
+                        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                        const targetItem = targetElement?.closest('.grid-item');
+                        
+                        if (targetItem && targetItem !== touchDraggedElement) {
+                            // Perform the swap
+                            const draggedIndex = parseInt(touchDraggedElement.dataset.index);
+                            const targetIndex = parseInt(targetItem.dataset.index);
+                            
+                            const draggedImage = images[draggedIndex];
+                            images.splice(draggedIndex, 1);
+                            images.splice(targetIndex, 0, draggedImage);
+                            
+                            renderGrid();
+                        }
+                        
+                        // Clean up
+                        touchDraggedElement.classList.remove('dragging');
+                        touchDraggedElement.style.opacity = '';
+                        document.querySelectorAll('.grid-item').forEach(i => i.classList.remove('drag-over'));
+                        touchDraggedElement = null;
+                        isDraggingTouch = false;
+                    }
+                }, { passive: false });
+
+                item.addEventListener('touchcancel', () => {
+                    clearTimeout(longPressTimer);
+                    if (touchDraggedElement) {
+                        touchDraggedElement.classList.remove('dragging');
+                        touchDraggedElement.style.opacity = '';
+                        document.querySelectorAll('.grid-item').forEach(i => i.classList.remove('drag-over'));
+                        touchDraggedElement = null;
+                        isDraggingTouch = false;
                     }
                 });
 

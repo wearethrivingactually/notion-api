@@ -722,9 +722,9 @@
 
         // Load saved credentials on page load
         window.addEventListener('DOMContentLoaded', () => {
-            const savedApiUrl = getCookie('apiUrl');
-            const savedDatabaseId = getCookie('databaseId');
-            const savedApiKey = getCookie('apiKey');
+            const savedApiUrl = localStorage.getItem('apiUrl');
+            const savedDatabaseId = localStorage.getItem('databaseId');
+            const savedApiKey = localStorage.getItem('apiKey');
             
             if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
             if (savedDatabaseId) document.getElementById('databaseId').value = savedDatabaseId;
@@ -738,16 +738,10 @@
             }
         });
 
-        function setCookie(name, value, days = 365) {
-            const expires = new Date(Date.now() + days * 864e5).toUTCString();
-            document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=None; Secure';
-        }
-
-        function getCookie(name) {
-            return document.cookie.split('; ').reduce((r, v) => {
-                const parts = v.split('=');
-                return parts[0] === name ? decodeURIComponent(parts[1]) : r;
-            }, '');
+        function saveCredentials(apiUrl, databaseId, apiKey) {
+            localStorage.setItem('apiUrl', apiUrl);
+            localStorage.setItem('databaseId', databaseId);
+            localStorage.setItem('apiKey', apiKey);
         }
 
         async function loadFromNotion() {
@@ -761,9 +755,7 @@
             }
 
             // Save credentials
-            setCookie('apiUrl', apiUrl);
-            setCookie('databaseId', databaseId);
-            setCookie('apiKey', apiKey);
+            saveCredentials(apiUrl, databaseId, apiKey);
 
             try {
                 const response = await fetch(apiUrl, {

@@ -831,17 +831,29 @@
                     const isCarousel = allImageUrls.length > 1 || type === 'Carousel';
                     const finalType = isCarousel ? 'Carousel' : type;
                     
-                    // First image as main URL, rest as slides
+                    // IMPORTANT: Prefer image URL over Canva URL for mobile compatibility
+                    // If there's an image AND a Canva URL, use the image as primary (it's likely a screenshot)
                     const imageUrl = allImageUrls.length > 0 ? allImageUrls[0] : null;
                     const slideUrls = allImageUrls.length > 1 ? allImageUrls : [];
                     
-                    console.log('Extracted data:', { canvaUrl, imageUrl, type: finalType, slideCount: slideUrls.length }); // Debug log
+                    // Only use Canva URL if there's no image provided
+                    const primaryUrl = imageUrl || convertToCanvaEmbedUrl(canvaUrl);
+                    const shouldUseCanva = !imageUrl && canvaUrl;
+                    
+                    console.log('Extracted data:', { 
+                        canvaUrl, 
+                        imageUrl, 
+                        primaryUrl,
+                        useCanva: shouldUseCanva,
+                        type: finalType, 
+                        slideCount: slideUrls.length 
+                    }); // Debug log
                     
                     return {
                         id: page.id,
                         name: page.properties.Name?.title[0]?.plain_text || 'Untitled',
-                        canvaUrl: convertToCanvaEmbedUrl(canvaUrl),
-                        url: imageUrl,
+                        canvaUrl: shouldUseCanva ? convertToCanvaEmbedUrl(canvaUrl) : null,
+                        url: primaryUrl,
                         type: finalType,
                         slides: slideUrls,
                         order: page.properties.Order?.number || 0
@@ -913,12 +925,16 @@
             }
         }
 
-        function createMediaElement(url, alt) {
+        function createMediaElement(url, alt, useProxy, apiUrl, apiKey) {
             const mediaType = getMediaType(url);
             
             if (mediaType === 'video') {
                 const video = document.createElement('video');
-                video.src = url;
+                if (useProxy && apiUrl && apiKey) {
+                    video.src = `${apiUrl}?proxyImage=${encodeURIComponent(url)}&apiKey=${encodeURIComponent(apiKey)}`;
+                } else {
+                    video.src = url;
+                }
                 video.muted = true;
                 video.loop = true;
                 video.playsInline = true;
@@ -926,20 +942,43 @@
                 return { element: video, type: 'video' };
             } else if (mediaType === 'image') {
                 const img = document.createElement('img');
-                img.src = url;
+                if (useProxy && apiUrl && apiKey) {
+                    img.src = `${apiUrl}?proxyImage=${encodeURIComponent(url)}&apiKey=${encodeURIComponent(apiKey)}`;
+                } else {
+                    img.src = url;
+                }
                 img.alt = alt;
                 img.onerror = () => {
                     console.error('Image failed to load:', url);
                     img.style.display = 'none';
-                    img.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;color:#999;font-size:12px;padding:10px;text-align:center;">Image failed to load</div>';
+                    const placeholder = document.createElement('div');
+                    placeholder.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;color:#999;font-size:12px;padding:10px;text-align:center;';
+                    placeholder.textContent = 'Image failed to load';
+                    img.parentElement?.appendChild(placeholder);
                 };
                 img.onload = () => console.log('Image loaded successfully:', url);
                 return { element: img, type: 'image' };
             } else if (isCanvaUrl(url)) {
+                // Try iframe first, but it may not work on mobile
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
                 iframe.loading = 'lazy';
                 iframe.setAttribute('allowfullscreen', '');
+                iframe.style.border = 'none';
+                
+                // Detect if iframe fails to load (mobile Notion, Safari, etc.)
+                let iframeLoaded = false;
+                iframe.onload = () => {
+                    iframeLoaded = true;
+                };
+                
+                // After a short delay, check if iframe loaded
+                setTimeout(() => {
+                    if (!iframeLoaded) {
+                        console.warn('Canva iframe may not have loaded:', url);
+                    }
+                }, 2000);
+                
                 iframe.onerror = () => console.error('Canva embed failed to load:', url);
                 return { element: iframe, type: 'canva' };
             }
@@ -1094,7 +1133,7 @@
                 });
 
                 const primarySource = img.canvaUrl || img.url;
-                const isFromCanva = !!img.canvaUrl;
+                const isFromCanva = !!img.canvaUrl; // True only if we're actually using Canva iframe
 
                 console.log('Primary source for item', index, ':', primarySource); // Debug
                 console.log('isFromCanva:', isFromCanva, 'img.type:', img.type); // Debug

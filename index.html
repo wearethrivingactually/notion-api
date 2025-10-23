@@ -561,7 +561,6 @@
     <script>
         let images = [];
         let draggedElement = null;
-        let carouselIntervals = {};
         let dragMode = false;
         
         // Detect if we're in an environment that supports iframes well
@@ -1150,9 +1149,6 @@
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
 
-            Object.values(carouselIntervals).forEach(interval => clearInterval(interval));
-            carouselIntervals = {};
-
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const apiKey = document.getElementById('apiKey').value.trim();
 
@@ -1369,18 +1365,32 @@
                         item.appendChild(dotsContainer);
 
                         let currentSlide = 0;
-                        carouselIntervals[index] = setInterval(() => {
-                            const slides = item.querySelectorAll('.carousel-slide');
-                            const dots = item.querySelectorAll('.carousel-dot');
-                            
-                            slides[currentSlide].classList.remove('active');
-                            dots[currentSlide].classList.remove('active');
-                            
-                            currentSlide = (currentSlide + 1) % img.slides.length;
-                            
-                            slides[currentSlide].classList.add('active');
-                            dots[currentSlide].classList.add('active');
-                        }, 2000);
+                        let hoverInterval = null;
+                        
+                        // Only auto-advance on hover (desktop)
+                        item.addEventListener('mouseenter', () => {
+                            if (!dragMode) {
+                                hoverInterval = setInterval(() => {
+                                    const slides = item.querySelectorAll('.carousel-slide');
+                                    const dots = item.querySelectorAll('.carousel-dot');
+                                    
+                                    slides[currentSlide].classList.remove('active');
+                                    dots[currentSlide].classList.remove('active');
+                                    
+                                    currentSlide = (currentSlide + 1) % img.slides.length;
+                                    
+                                    slides[currentSlide].classList.add('active');
+                                    dots[currentSlide].classList.add('active');
+                                }, 2000);
+                            }
+                        });
+                        
+                        item.addEventListener('mouseleave', () => {
+                            if (hoverInterval) {
+                                clearInterval(hoverInterval);
+                                hoverInterval = null;
+                            }
+                        });
                     }
 
                 } else if (img.type === 'Reel' && primarySource) {

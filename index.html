@@ -1107,102 +1107,78 @@
                 return { element: img, type: 'image' };
             } else if (isCanvaUrl(url)) {
                 const container = document.createElement('div');
-                container.style.cssText = 'width:100%;height:100%;position:relative;';
+                container.style.cssText = 'width:100%;height:100%;position:relative;background:#f0f0f0;';
                 
-                // For mobile WITHOUT fallback, create click-to-open experience
-                if (!SUPPORTS_IFRAMES && !fallbackUrl) {
-                    console.log('Mobile without fallback - using click-to-open Canva approach');
-                    
-                    // Create a clickable link that opens Canva
-                    const link = document.createElement('a');
-                    link.href = url.replace('view?embed', 'view'); // Remove embed parameter
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;background:#f0f0f0;text-decoration:none;';
-                    
-                    // Show placeholder with Canva logo
-                    link.innerHTML = `
-                        <div style="color:#00c7be;font-size:48px;margin-bottom:8px;">📱</div>
-                        <div style="color:#666;font-size:14px;font-weight:600;">Tap to view in Canva</div>
-                    `;
-                    
-                    container.appendChild(link);
-                    return { element: container, type: 'canva' };
-                }
+                console.log('🎨 Attempting to load Canva:', url);
+                console.log('Environment support:', SUPPORTS_IFRAMES, 'Has fallback:', !!fallbackUrl);
                 
-                // For mobile WITH fallback, show image with overlay
-                if (!SUPPORTS_IFRAMES && fallbackUrl) {
-                    console.log('Mobile with fallback - showing image with tap-to-open overlay');
-                    
-                    const link = document.createElement('a');
-                    link.href = url.replace('view?embed', 'view');
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    link.style.cssText = 'display:block;width:100%;height:100%;position:relative;text-decoration:none;';
-                    
-                    const img = document.createElement('img');
-                    img.src = fallbackUrl;
-                    img.alt = alt;
-                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-                    link.appendChild(img);
-                    
-                    // Add "Open in Canva" overlay
-                    const overlay = document.createElement('div');
-                    overlay.style.cssText = 'position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,199,190,0.9);color:white;padding:8px;border-radius:4px;font-size:12px;text-align:center;font-weight:600;';
-                    overlay.textContent = 'Tap to open in Canva';
-                    link.appendChild(overlay);
-                    
-                    container.appendChild(link);
-                    return { element: container, type: 'canva' };
-                }
-                
-                // Desktop OR Safari: Use iframe with fallback
-                console.log('Desktop - using Canva iframe');
+                // Try ALWAYS loading iframe first, regardless of device
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
-                iframe.loading = 'lazy';
-                iframe.setAttribute('allowfullscreen', '');
-                iframe.style.cssText = 'width:100%;height:100%;border:none;';
+                iframe.loading = 'eager'; // Changed from lazy to eager
+                iframe.setAttribute('allowfullscreen', 'true');
+                iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+                iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms');
+                iframe.style.cssText = 'width:100%;height:100%;border:none;position:absolute;top:0;left:0;';
                 
                 let iframeLoaded = false;
                 let fallbackApplied = false;
+                let loadTimeout = null;
                 
-                // Success handler
                 iframe.onload = () => {
                     iframeLoaded = true;
-                    console.log('Canva iframe loaded successfully:', url);
+                    console.log('✅ Canva iframe loaded!');
+                    clearTimeout(loadTimeout);
+                    // Remove background color on success
+                    container.style.background = 'transparent';
                 };
                 
-                // Error handler - switch to fallback image if available
                 iframe.onerror = () => {
-                    console.error('Canva embed failed to load:', url);
-                    if (fallbackUrl && !fallbackApplied) {
-                        console.log('Switching to fallback image:', fallbackUrl);
-                        fallbackApplied = true;
+                    console.error('❌ Canva iframe error event');
+                    clearTimeout(loadTimeout);
+                    applyFallback();
+                };
+                
+                const applyFallback = () => {
+                    if (fallbackApplied) return;
+                    fallbackApplied = true;
+                    
+                    console.log('📸 Using fallback method');
+                    
+                    if (fallbackUrl) {
+                        // Show image with Canva badge
                         const img = document.createElement('img');
                         img.src = fallbackUrl;
                         img.alt = alt;
-                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;';
                         container.innerHTML = '';
                         container.appendChild(img);
+                    } else {
+                        // Show tap-to-open button
+                        const link = document.createElement('a');
+                        link.href = url.replace('view?embed', 'view');
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;color:#666;position:absolute;top:0;left:0;';
+                        link.innerHTML = `
+                            <div style="font-size:48px;margin-bottom:12px;">🎨</div>
+                            <div style="font-size:14px;font-weight:600;">Tap to view in Canva</div>
+                        `;
+                        container.innerHTML = '';
+                        container.appendChild(link);
                     }
                 };
                 
-                // Timeout check - if iframe didn't load after 3 seconds and we have fallback, use it
-                setTimeout(() => {
-                    if (!iframeLoaded && fallbackUrl && !fallbackApplied) {
-                        console.warn('Canva iframe timeout, switching to fallback:', fallbackUrl);
-                        fallbackApplied = true;
-                        const img = document.createElement('img');
-                        img.src = fallbackUrl;
-                        img.alt = alt;
-                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-                        container.innerHTML = '';
-                        container.appendChild(img);
+                // Set aggressive timeout
+                loadTimeout = setTimeout(() => {
+                    if (!iframeLoaded) {
+                        console.warn('⏱️ Canva iframe timeout (2s) - applying fallback');
+                        applyFallback();
                     }
-                }, 3000);
+                }, 2000);
                 
                 container.appendChild(iframe);
+                
                 return { element: container, type: 'canva' };
             }
             

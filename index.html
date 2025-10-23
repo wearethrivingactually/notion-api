@@ -183,10 +183,20 @@
             cursor: grabbing;
         }
 
-        .grid-item.drag-mode iframe,
-        .grid-item.drag-mode video,
-        .grid-item.drag-mode img {
-            pointer-events: none;
+        .grid-item.drag-mode::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: transparent;
+            z-index: 100;
+            cursor: grab;
+        }
+
+        .grid-item.drag-mode:active::after {
+            cursor: grabbing;
         }
 
         .drag-handle {
@@ -201,6 +211,23 @@
             width: 100%;
             height: 100%;
             border: none;
+            pointer-events: auto;
+        }
+
+        /* Hide Canva's fullscreen button */
+        .grid-item iframe::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 60px;
+            height: 60px;
+            background: transparent;
+            pointer-events: none;
+        }
+
+        .grid-item.drag-mode iframe {
+            pointer-events: none !important;
         }
 
         .grid-item.reel iframe {

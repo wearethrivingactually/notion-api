@@ -562,6 +562,8 @@
         let images = [];
         let draggedElement = null;
         let dragMode = false;
+        let displayedCount = 12; // Start with 12 images
+        const LOAD_INCREMENT = 12; // Load 12 more each time
         
         // Detect if we're in an environment that supports iframes well
         function canUseIframes() {
@@ -1034,6 +1036,9 @@
                     });
                 });
 
+                // Reset infinite scroll counter
+                displayedCount = 12;
+
                 renderGrid();
                 showStatus(`Loaded ${images.length} items successfully!`);
                 
@@ -1153,14 +1158,17 @@
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const apiKey = document.getElementById('apiKey').value.trim();
 
-            console.log('Rendering grid with', images.length, 'images'); // Debug
+            console.log('Rendering grid with', displayedCount, 'of', images.length, 'images');
 
             if (images.length === 0) {
                 grid.innerHTML = '<div class="placeholder">No items loaded. Configure your settings above and add some content!</div>';
                 return;
             }
 
-            images.forEach((img, index) => {
+            // Only render up to displayedCount images
+            const imagesToRender = images.slice(0, displayedCount);
+
+            imagesToRender.forEach((img, index) => {
                 console.log('Rendering item', index, img); // Debug
                 
                 const item = document.createElement('div');
@@ -1478,6 +1486,40 @@
                 item.classList.remove('drag-over');
             });
         }
+
+        // Infinite scroll implementation
+        let isLoading = false;
+        
+        function checkScroll() {
+            if (isLoading) return;
+            if (displayedCount >= images.length) return; // All images loaded
+            
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const threshold = document.body.offsetHeight - 500; // Trigger 500px before bottom
+            
+            if (scrollPosition >= threshold) {
+                isLoading = true;
+                console.log('Loading more images...');
+                
+                // Simulate small delay for smooth loading
+                setTimeout(() => {
+                    displayedCount = Math.min(displayedCount + LOAD_INCREMENT, images.length);
+                    renderGrid();
+                    isLoading = false;
+                    console.log('Now showing', displayedCount, 'of', images.length, 'images');
+                }, 100);
+            }
+        }
+        
+        // Throttle scroll events for performance
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            if (scrollTimeout) clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(checkScroll, 100);
+        });
+        
+        // Also check on window resize
+        window.addEventListener('resize', checkScroll);
 
         renderGrid();
     </script>

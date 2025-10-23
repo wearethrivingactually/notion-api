@@ -997,8 +997,9 @@
 
                     const indicator = document.createElement('div');
                     indicator.className = 'carousel-indicator';
-                    indicator.innerHTML = '⊡⊡';
+                    indicator.textContent = '1/' + img.slides.length;
                     indicator.style.fontSize = '10px';
+                    indicator.style.fontWeight = 'bold';
                     item.appendChild(indicator);
 
                     if (!isFromCanva && img.slides.length > 1) {

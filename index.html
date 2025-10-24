@@ -518,8 +518,10 @@
                 <input type="password" id="apiKey" placeholder="Enter your Notion integration token">
             </div>
             <div style="background:#f0f8ff;border:1px solid #b3d9ff;border-radius:6px;padding:12px;margin-top:16px;font-size:13px;line-height:1.5;">
-                <strong>💡 Canva Tip:</strong> To embed Canva designs, they must be published first.<br/>
-                In Canva: <strong>Share → More → Embed → Generate code</strong>, then paste the URL into your Notion "Canva URL" property.
+                <strong>💡 Tips:</strong><br/>
+                • <strong>Canva embeds:</strong> Share → More → Embed → Generate code, then paste URL<br/>
+                • <strong>Hide items:</strong> Add a "Visible" checkbox property in Notion to control visibility<br/>
+                • Unchecked items won't appear in the grid
             </div>
         </div>
 
@@ -977,9 +979,11 @@
                     
                     const canvaUrl = page.properties['Canva URL']?.url || null;
                     const imageFiles = page.properties.Image?.files || [];
+                    const visible = page.properties.Visible?.checkbox ?? true; // Default to true if not set
                     
                     console.log('  - Canva URL:', canvaUrl);
                     console.log('  - Image files:', imageFiles);
+                    console.log('  - Visible:', visible);
                     
                     // Get all file URLs from Image property
                     const allImageUrls = imageFiles.map(file => file.file?.url || file.external?.url).filter(url => url);
@@ -1001,6 +1005,7 @@
                         imageUrl, 
                         type: finalType, 
                         slideCount: slideUrls.length,
+                        visible: visible,
                         supportsIframes: SUPPORTS_IFRAMES
                     });
                     
@@ -1012,14 +1017,20 @@
                         url: imageUrl, // For backward compatibility
                         type: finalType,
                         slides: slideUrls,
-                        order: page.properties.Order?.number || 0
+                        order: page.properties.Order?.number || 0,
+                        visible: visible
                     };
                 });
                 
                 console.log('Before filtering:', images.length, 'items');
                 console.log('All images before filter:', images);
                 
-                images = images.filter(img => img.canvaUrl || img.url || img.slides.length > 0);
+                // Filter by visible checkbox first, then by having content
+                images = images.filter(img => {
+                    const hasContent = img.canvaUrl || img.url || img.slides.length > 0;
+                    const isVisible = img.visible !== false; // Show if visible is true or undefined
+                    return hasContent && isVisible;
+                });
 
                 console.log('After filtering:', images.length, 'items');
                 console.log('Final images array:', images); // Debug log
